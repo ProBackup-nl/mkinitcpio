@@ -332,7 +332,14 @@ resolve_device() {
     # USB, which might not immediately show up.
     case $device in
         UUID=*|LABEL=*|PARTUUID=*|PARTLABEL=*)
-            dev=$(blkid -lt "$device" -o device)
+            # if udev is running then try once
+            # if udev is not running try for (timeout * sleep =) 5 seconds to handle slow (USB) devices
+            [ "$udevd_running" -eq 1 ] && timeout=1 || timeout=20
+            while [ $timeout -gt 0 ]; do
+                timeout=$((timeout - 1))
+                dev=$(blkid -lt "$device" -o device)
+                [ -n "$dev" ] && timeout=0 || sleep 0.25
+            done
             if [ -z "$dev" -a "$udevd_running" -eq 1 ]; then
                 dev=$(tag_to_udev_path "${device%%=*}" "${device#*=}")
             fi
